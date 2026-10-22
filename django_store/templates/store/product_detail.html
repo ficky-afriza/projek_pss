@@ -1,0 +1,11 @@
+{% extends "store/base.html" %}
+{% block title %}{{ product.name }} | Toko FR{% endblock %}
+{% block content %}
+<a href="{% url 'home' %}">← Kembali ke produk</a>
+<section class="detail">
+  <div>{% if product.image %}<img class="detail-image" src="{{ product.image.url }}" alt="{{ product.name }}">{% else %}<div class="product-placeholder">Tidak ada foto</div>{% endif %}
+  {% for image in product.images.all %}<img class="gallery-image" src="{{ image.image.url }}" alt="{{ product.name }}">{% endfor %}</div>
+  <div><h1>{{ product.name }}</h1>{% if product.category %}<p class="muted">{{ product.category.name }}</p>{% endif %}{% if discount %}<p class="muted"><s>Rp{{ product.price|floatformat:0 }}</s></p>{% endif %}<p class="price">Rp{{ product.discounted_price|floatformat:0 }}</p><p>{{ product.description|linebreaks }}</p><p>Stok: {{ product.stock }}</p>
+  {% if user.is_authenticated %}<form method="post" action="{% url 'cart_add' product.id %}">{% csrf_token %}<button class="button" {% if not product.stock %}disabled{% endif %}>Tambah ke keranjang</button></form>{% else %}<a class="button" href="{% url 'login' %}">Masuk untuk membeli</a>{% endif %}</div>
+</section>
+{% endblock %}

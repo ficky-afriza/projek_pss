@@ -1,0 +1,7 @@
+{% extends "store/base.html" %}
+{% block content %}
+<section class="form-card"><h1>{{ title }}</h1>
+  <form method="post" {% if multipart %}enctype="multipart/form-data"{% endif %}>{% csrf_token %}{{ form.as_p }}<button class="button">{% if title == "Daftar akun" %}Daftar{% else %}Simpan{% endif %}</button></form>
+  {% if title == "Daftar akun" %}<p>Sudah punya akun? <a href="{% url 'login' %}">Masuk</a></p>{% endif %}
+</section>
+{% endblock %}

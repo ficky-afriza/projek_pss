@@ -1,0 +1,8 @@
+{% extends "store/base.html" %}
+{% block title %}Masuk | Toko FR{% endblock %}
+{% block content %}
+<section class="form-card"><h1>Masuk</h1>{% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+  <form method="post">{% csrf_token %}<label>Username<input name="username" autocomplete="username" required></label><label>Password<input type="password" name="password" autocomplete="current-password" required></label><button class="button">Masuk</button></form>
+  <p>Belum punya akun? <a href="{% url 'register' %}">Daftar</a></p>
+</section>
+{% endblock %}

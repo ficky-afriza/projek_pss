@@ -1,0 +1,15 @@
+{% extends "store/base.html" %}
+{% block title %}Keranjang | Toko FR{% endblock %}
+{% block content %}
+<h1>Keranjang belanja</h1>
+{% if lines %}
+<form method="post" action="{% url 'cart_update' %}">{% csrf_token %}
+<div class="table-wrap"><table><thead><tr><th>Produk</th><th>Harga</th><th>Jumlah</th><th>Subtotal</th><th></th></tr></thead><tbody>
+{% for line in lines %}<tr><td>{{ line.product.name }}</td><td>Rp{{ line.product.price|floatformat:0 }}</td><td><input class="quantity" type="number" min="1" max="{{ line.product.stock }}" name="quantity_{{ line.product.id }}" value="{{ line.quantity }}"></td><td>Rp{{ line.subtotal|floatformat:0 }}</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="actions"><button class="button secondary">Perbarui keranjang</button><strong>Total: Rp{{ total|floatformat:0 }}</strong><a class="button" href="{% url 'checkout' %}">Checkout</a></div>
+</form>
+<div class="remove-items">{% for line in lines %}<form class="inline" method="post" action="{% url 'cart_remove' line.product.id %}">{% csrf_token %}<button class="text-button">Hapus {{ line.product.name }}</button></form>{% endfor %}</div>
+<form method="post" action="{% url 'cart_clear' %}">{% csrf_token %}<button class="text-button">Kosongkan keranjang</button></form>
+{% else %}<p>Keranjang masih kosong. <a href="{% url 'home' %}">Lihat produk</a></p>{% endif %}
+{% endblock %}

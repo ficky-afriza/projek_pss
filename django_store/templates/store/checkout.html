@@ -1,0 +1,200 @@
+{% extends "store/base.html" %}
+{% block title %}Checkout | Toko FR{% endblock %}
+{% block content %}
+<h1>Checkout</h1>
+<div class="checkout-layout">
+  <section class="form-card">
+    <form method="post" id="checkout-form">
+      {% csrf_token %}
+      {{ form.as_p }}
+      {% if shipping_enabled %}
+      <fieldset class="shipping-fields">
+        <legend>Pengiriman</legend>
+        <p class="muted">Tarif dihitung untuk berat estimasi 1 kg. Cari lalu pilih kelurahan tujuan.</p>
+        <label for="location-search">Cari kelurahan / lokasi</label>
+        <input id="location-search" type="search" autocomplete="off" placeholder="Ketik minimal 3 karakter">
+        <div id="location-results" class="location-results" role="listbox" aria-label="Hasil pencarian lokasi"></div>
+        <input type="hidden" id="destination" name="destination" value="{{ selected_destination }}" required>
+        <p id="selected-destination" class="muted">Belum memilih tujuan.</p>
+        <label for="courier">Kurir</label>
+        <select id="courier" name="courier">
+          <option value="jne" {% if selected_courier == "jne" %}selected{% endif %}>JNE</option>
+          <option value="pos" {% if selected_courier == "pos" %}selected{% endif %}>POS</option>
+          <option value="tiki" {% if selected_courier == "tiki" %}selected{% endif %}>TIKI</option>
+        </select>
+        <label for="shipping-service">Layanan pengiriman</label>
+        <select id="shipping-service" required disabled>
+          <option value="">Pilih tujuan dan kurir terlebih dahulu</option>
+        </select>
+        <input type="hidden" name="shipping_cost" id="shipping-cost" value="{{ selected_shipping_cost }}">
+        <p id="shipping-message" class="muted" role="status" aria-live="polite"></p>
+      </fieldset>
+      {% else %}
+      <p class="muted">Ongkir menggunakan tarif tetap yang dikonfigurasi toko.</p>
+      {% endif %}
+      <button class="button" id="checkout-submit" {% if shipping_enabled %}disabled{% endif %}>Buat pesanan</button>
+    </form>
+  </section>
+  <aside class="summary">
+    <h2>Ringkasan pesanan</h2>
+    {% for product, quantity, discount, line_total in lines %}<p>{{ product.name }} × {{ quantity }} <strong>Rp{{ line_total|floatformat:0 }}</strong></p>{% endfor %}
+    <hr>
+    <p>Subtotal <strong>Rp{{ subtotal|floatformat:0 }}</strong></p>
+    <p>Ongkir <strong id="shipping-display">Rp{{ shipping_fee|floatformat:0 }}</strong></p>
+    <h3>Total <span id="total-display">Rp{{ total|floatformat:0 }}</span></h3>
+  </aside>
+</div>
+{% if shipping_enabled %}
+<script>
+(() => {
+  const searchInput = document.getElementById("location-search");
+  const destination = document.getElementById("destination");
+  const locationResults = document.getElementById("location-results");
+  const selectedDestination = document.getElementById("selected-destination");
+  const courier = document.getElementById("courier");
+  const service = document.getElementById("shipping-service");
+  const shippingInput = document.getElementById("shipping-cost");
+  const shippingDisplay = document.getElementById("shipping-display");
+  const totalDisplay = document.getElementById("total-display");
+  const message = document.getElementById("shipping-message");
+  const submit = document.getElementById("checkout-submit");
+  const baseSubtotal = Number("{{ subtotal|floatformat:0 }}");
+  let searchTimer;
+  let searchRequestNumber = 0;
+  let costRequestNumber = 0;
+
+  const rupiah = (amount) => new Intl.NumberFormat("id-ID", {
+    style: "currency", currency: "IDR", maximumFractionDigits: 0
+  }).format(amount);
+
+  const resetServices = (text) => {
+    service.replaceChildren(new Option(text, ""));
+    service.disabled = true;
+    shippingInput.value = "";
+    submit.disabled = true;
+    shippingDisplay.textContent = rupiah(0);
+    totalDisplay.textContent = rupiah(baseSubtotal);
+  };
+
+  searchInput.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    const currentRequest = ++searchRequestNumber;
+    destination.value = "";
+    selectedDestination.textContent = "Belum memilih tujuan.";
+    locationResults.replaceChildren();
+    resetServices("Pilih tujuan dan kurir terlebih dahulu");
+    const query = searchInput.value.trim();
+    if (query.length < 3) {
+      message.textContent = "Masukkan minimal 3 karakter untuk mencari lokasi.";
+      return;
+    }
+    message.textContent = "Mencari lokasi...";
+    searchTimer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("{{ location_url }}?search=" + encodeURIComponent(query), {
+          headers: { "Accept": "application/json" }
+        });
+        const data = await response.json();
+        if (currentRequest !== searchRequestNumber) return;
+        const locations = Array.isArray(data) ? data : data && data.data;
+        if (!response.ok || !Array.isArray(locations)) {
+          throw new Error(data.message || "Gagal mencari lokasi.");
+        }
+        let resultCount = 0;
+        for (const item of locations) {
+          const id = item.destination_id ?? item.id ?? item.destinationId;
+          const label = item.label || [
+            item.subdistrict_name ?? item.subdistrict,
+            item.district_name ?? item.district,
+            item.city_name ?? item.city,
+            item.province_name ?? item.province,
+            item.zip_code ?? item.postal_code
+          ].filter(Boolean).join(", ");
+          if (id === undefined || !label) continue;
+          const result = document.createElement("button");
+          result.type = "button";
+          result.className = "location-result";
+          result.setAttribute("role", "option");
+          result.textContent = label;
+          result.addEventListener("click", () => {
+            destination.value = String(id);
+            selectedDestination.textContent = "Tujuan dipilih: " + label;
+            locationResults.replaceChildren();
+            loadServices();
+          });
+          locationResults.append(result);
+          resultCount++;
+        }
+        message.textContent = resultCount
+          ? `${resultCount} lokasi ditemukan. Pilih tujuan di bawah kotak pencarian.`
+          : "Lokasi tidak ditemukan. Coba nama kelurahan, kecamatan, atau kota.";
+      } catch (error) {
+        if (currentRequest === searchRequestNumber) {
+          message.textContent = error.message || "Layanan lokasi sedang tidak tersedia.";
+        }
+      }
+    }, 400);
+  });
+
+  const loadServices = async () => {
+    resetServices("Memuat layanan ongkir...");
+    const currentRequest = ++costRequestNumber;
+    if (!destination.value) return;
+    message.textContent = "Menghitung ongkir...";
+    try {
+      const params = new URLSearchParams({
+        destination: destination.value,
+        courier: courier.value,
+        weight: "1000"
+      });
+      const response = await fetch("{{ cost_url }}?" + params.toString(), {
+        headers: { "Accept": "application/json" }
+      });
+      const data = await response.json();
+      if (currentRequest !== costRequestNumber) return;
+      if (!response.ok || !Array.isArray(data)) {
+        throw new Error(data.message || "Gagal menghitung ongkir.");
+      }
+      service.replaceChildren(new Option("Pilih layanan", ""));
+      for (const item of data) {
+        const cost = Number(item.cost);
+        if (!Number.isFinite(cost) || cost < 0) continue;
+        const name = [item.description, item.service].filter(Boolean).join(" - ");
+        const estimate = item.etd ? ` · estimasi ${item.etd}` : "";
+        const option = new Option(`${name || "Layanan"} · ${rupiah(cost)}${estimate}`, String(cost));
+        service.add(option);
+      }
+      service.disabled = service.options.length < 2;
+      message.textContent = service.disabled ? "Tidak ada layanan untuk tujuan ini." : "Pilih layanan pengiriman.";
+    } catch (error) {
+      if (currentRequest === costRequestNumber) {
+        resetServices("Layanan ongkir tidak tersedia");
+        message.textContent = error.message || "Layanan ongkir sedang tidak tersedia.";
+      }
+    }
+  };
+
+  destination.addEventListener("change", loadServices);
+  courier.addEventListener("change", loadServices);
+  service.addEventListener("change", () => {
+    const cost = Number(service.value);
+    const valid = service.value !== "" && Number.isFinite(cost) && cost >= 0;
+    shippingInput.value = valid ? service.value : "";
+    submit.disabled = !valid;
+    if (valid) {
+      shippingDisplay.textContent = rupiah(cost);
+      totalDisplay.textContent = rupiah(baseSubtotal + cost);
+      message.textContent = "Tarif ongkir terpilih.";
+    }
+  });
+
+  document.getElementById("checkout-form").addEventListener("submit", (event) => {
+    if (!destination.value || !shippingInput.value) {
+      event.preventDefault();
+      message.textContent = "Pilih tujuan dan layanan ongkir sebelum membuat pesanan.";
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

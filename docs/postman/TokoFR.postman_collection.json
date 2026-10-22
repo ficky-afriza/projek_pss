@@ -1,0 +1,170 @@
+{
+  "info": {
+    "_postman_id": "4757b1d1-2192-4dd5-95d3-410a4411d74a",
+    "name": "Toko FR API",
+    "description": "Requests for the Django Toko FR endpoints. Configure the base URL and local API key before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000" },
+    { "key": "apiKey", "value": "" },
+    { "key": "destinationId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Shipping - search destination",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/get-location?search=Jakarta&limit=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["get-location"],
+          "query": [
+            { "key": "search", "value": "Jakarta" },
+            { "key": "limit", "value": "10" }
+          ]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('Destination search responds', function () { pm.expect(pm.response.code).to.be.oneOf([200, 422, 429, 502, 503]); });",
+            "if (pm.response.code === 200) pm.test('Response is JSON', function () { pm.response.to.be.json; });"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "Checkout shipping - calculate cost for 1 kg",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/get-cost?origin=64999&destination={{destinationId}}&weight=1000&courier=jne",
+          "host": ["{{baseUrl}}"],
+          "path": ["get-cost"],
+          "query": [
+            { "key": "origin", "value": "64999" },
+            { "key": "destination", "value": "{{destinationId}}" },
+            { "key": "weight", "value": "1000" },
+            { "key": "courier", "value": "jne" }
+          ]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('Shipping cost endpoint returns JSON', function () { pm.expect(pm.response.code).to.be.oneOf([200, 422, 429, 502, 503]); pm.response.to.be.json; });"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "Transactions - API key required",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{apiKey}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api?page=1&perPage=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "perPage", "value": "10" },
+            { "key": "status", "value": "", "disabled": true },
+            { "key": "username", "value": "", "disabled": true }
+          ]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('Transaction API returns a controlled response', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 429]); });",
+            "if (pm.response.code === 200) pm.test('Pagination metadata exists', function () { pm.expect(pm.response.json().pagination).to.have.property('totalPages'); });"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "Transactions - API key rejected when missing",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api",
+          "host": ["{{baseUrl}}"],
+          "path": ["api"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('Missing API key is rejected', function () { pm.response.to.have.status(401); });"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "Products - API key required",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{apiKey}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/produk/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "produk"]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('Product API returns a controlled response', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 429]); });",
+            "if (pm.response.code === 200) pm.test('Product data exists', function () { pm.expect(pm.response.json()).to.have.property('data'); });"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "Admin dashboard - anonymous access rejected",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/transaksi?page=1&perPage=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "transaksi"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "perPage", "value": "10" }
+          ]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('Anonymous dashboard request is rejected', function () { pm.response.to.have.status(401); });"
+          ]
+        }
+      }]
+    }
+  ]
+}

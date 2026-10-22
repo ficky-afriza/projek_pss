@@ -1,0 +1,1 @@
+__ci_last_regenerate|i:1789715267;_ci_previous_url|s:27:"http://127.0.0.1:8080/login";login_attempts|a:1:{s:5:"ficky";a:2:{s:8:"attempts";i:3;s:12:"locked_until";i:1789715885;}}failed|s:78:"Tiga kali percobaan login gagal. Silakan tunggu 30 menit sebelum mencoba lagi.";__ci_vars|a:1:{s:6:"failed";s:3:"old";}

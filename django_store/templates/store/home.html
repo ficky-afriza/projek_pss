@@ -1,0 +1,28 @@
+{% extends "store/base.html" %}
+{% block title %}Produk | Toko FR{% endblock %}
+{% block content %}
+<section class="hero"><h1>Temukan produk pilihan</h1><p>Belanja mudah dan aman di Toko FR.</p></section>
+<form class="toolbar" method="get">
+  <input name="q" value="{{ query }}" placeholder="Cari produk">
+  <select name="category"><option value="">Semua kategori</option>{% for category in categories %}<option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select>
+  <button class="button">Cari</button>
+</form>
+<section class="product-grid">
+  {% for product in products %}
+  <article class="card">
+    <a href="{% url 'product_detail' product.id %}">
+      {% if product.image %}<img class="product-image" src="{{ product.image.url }}" alt="{{ product.name }}">{% else %}<div class="product-placeholder">Tidak ada foto</div>{% endif %}
+      <h2>{{ product.name }}</h2>
+    </a>
+    {% if product.category %}<p class="muted">{{ product.category.name }}</p>{% endif %}
+    {% if discount %}<p class="muted"><s>Rp{{ product.price|floatformat:0 }}</s></p>{% endif %}
+    <p class="price">Rp{{ product.discounted_price|floatformat:0 }}</p>
+    <p class="muted">Stok {{ product.stock }}</p>
+    {% if user.is_authenticated %}<form method="post" action="{% url 'cart_add' product.id %}">{% csrf_token %}<button class="button" {% if not product.stock %}disabled{% endif %}>Tambah ke keranjang</button></form>{% endif %}
+  </article>
+  {% empty %}<p>Belum ada produk yang cocok.</p>{% endfor %}
+</section>
+{% if products.has_other_pages %}
+<div class="pagination">{% if products.has_previous %}<a href="?page={{ products.previous_page_number }}&q={{ query }}&category={{ selected_category }}">Sebelumnya</a>{% endif %}<span>Halaman {{ products.number }} dari {{ products.paginator.num_pages }}</span>{% if products.has_next %}<a href="?page={{ products.next_page_number }}&q={{ query }}&category={{ selected_category }}">Berikutnya</a>{% endif %}</div>
+{% endif %}
+{% endblock %}

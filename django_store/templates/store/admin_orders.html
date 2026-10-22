@@ -1,0 +1,50 @@
+{% extends "store/base.html" %}
+{% block title %}Konfirmasi pesanan | Toko FR{% endblock %}
+{% block content %}
+<div class="admin-page-heading">
+  <div><h1>Konfirmasi pesanan</h1><p class="muted">Periksa bukti pembayaran sebelum mengonfirmasi pesanan.</p></div>
+  <a class="button secondary" href="{% url 'admin:index' %}">Kelola produk & data</a>
+</div>
+<section class="admin-order-stats">
+  <a href="?status=0" class="admin-stat"><span>Menunggu</span><strong>{{ waiting_count }}</strong></a>
+  <a href="?status=1" class="admin-stat"><span>Dibayar</span><strong>{{ paid_count }}</strong></a>
+  <a href="?status=2" class="admin-stat"><span>Ditolak</span><strong>{{ rejected_count }}</strong></a>
+</section>
+<form class="admin-filter" method="get">
+  <label for="status-filter">Filter pesanan</label>
+  <select id="status-filter" name="status">
+    <option value="0" {% if selected_status == "0" %}selected{% endif %}>Menunggu pembayaran</option>
+    <option value="1" {% if selected_status == "1" %}selected{% endif %}>Dibayar</option>
+    <option value="2" {% if selected_status == "2" %}selected{% endif %}>Ditolak</option>
+    <option value="all" {% if selected_status == "all" %}selected{% endif %}>Semua pesanan</option>
+  </select>
+  <button class="button secondary">Tampilkan</button>
+</form>
+{% for order in orders %}
+<article class="order-card admin-order-card">
+  <div class="order-heading">
+    <h2>Pesanan #{{ order.id }} · {{ order.user.username }}</h2>
+    <span class="badge">{{ order.get_status_display }}</span>
+  </div>
+  <p>{{ order.created_at|date:"d M Y H:i" }} · {{ order.get_payment_method_display }}</p>
+  <p><strong>Alamat:</strong> {{ order.address }}</p>
+  <ul>{% for item in order.items.all %}<li>{{ item.product_name }} × {{ item.quantity }} — Rp{{ item.subtotal|floatformat:0 }}</li>{% endfor %}</ul>
+  <p><strong>Ongkir:</strong> Rp{{ order.shipping_fee|floatformat:0 }} · <strong>Total:</strong> Rp{{ order.total|floatformat:0 }}</p>
+  {% if order.payment_proof %}
+    <p><a class="button secondary" href="{{ order.payment_proof.url }}" target="_blank" rel="noopener">Lihat bukti pembayaran</a></p>
+  {% else %}
+    <p class="notice">Belum ada bukti pembayaran yang diunggah.</p>
+  {% endif %}
+  {% if order.status != 1 %}
+  <div class="admin-order-actions">
+    {% if order.payment_proof %}
+    <form method="post" action="{% url 'update_order_payment' order.id 1 %}">{% csrf_token %}<button class="button">Konfirmasi pembayaran</button></form>
+    {% endif %}
+    <form method="post" action="{% url 'update_order_payment' order.id 2 %}">{% csrf_token %}<button class="button danger">Tolak pesanan</button></form>
+  </div>
+  {% endif %}
+</article>
+{% empty %}
+<p>Belum ada pesanan pada filter ini.</p>
+{% endfor %}
+{% endblock %}

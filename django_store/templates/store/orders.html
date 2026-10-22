@@ -1,0 +1,13 @@
+{% extends "store/base.html" %}
+{% block title %}Pesanan saya | Toko FR{% endblock %}
+{% block content %}
+<h1>Riwayat pesanan</h1>
+{% for order in orders %}
+<article class="order-card"><div class="order-heading"><h2>Pesanan #{{ order.id }}</h2><span class="badge">{{ order.get_status_display }}</span></div><p>{{ order.created_at|date:"d M Y H:i" }} · {{ order.get_payment_method_display }}</p><p>{{ order.address }}</p>
+<ul>{% for item in order.items.all %}<li>{{ item.product_name }} × {{ item.quantity }} — Rp{{ item.subtotal|floatformat:0 }}</li>{% endfor %}</ul>
+<p class="price">Total Rp{{ order.total|floatformat:0 }}</p>
+{% if order.payment_proof %}<p>Bukti pembayaran: <a href="{{ order.payment_proof.url }}">Lihat file</a></p>{% endif %}
+{% if order.status == 0 or order.status == 2 %}<form class="upload-form" method="post" enctype="multipart/form-data" action="{% url 'upload_payment_proof' order.id %}">{% csrf_token %}<input type="file" name="payment_proof" accept="image/jpeg,image/png,image/webp" required><button class="button secondary">Unggah bukti pembayaran</button></form>{% endif %}
+</article>
+{% empty %}<p>Belum ada pesanan.</p>{% endfor %}
+{% endblock %}
